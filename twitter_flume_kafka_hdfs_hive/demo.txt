@@ -1,0 +1,204 @@
+VM utilziada quickstart Cloudera para Virtual Box
+https://www.cloudera.com/downloads/quickstart_vms/5-12.html
+
+#######################################################
+## Baixar Kafka
+#######################################################
+
+wget http://ftp.unicamp.br/pub/apache/kafka/0.10.2.1/kafka_2.10-0.10.2.1.tgz
+
+tar -xzf kafka_2.10-0.10.2.1.tgz
+
+cd kafka_2.10-0.10.2.1
+
+#######################################################
+## Iniciar Kafka
+#######################################################
+
+nohup bin/kafka-server-start.sh config/server.properties &
+
+#######################################################
+## Criar topico do Kafka
+#######################################################
+
+bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic msg
+
+#######################################################
+## Listar topico do Kafka
+#######################################################
+
+bin/kafka-topics.sh --list --zookeeper localhost:2181
+
+#######################################################
+## Abrir producer Kafka -- Digitar mensagens
+#######################################################
+
+bin/kafka-console-producer.sh --broker-list localhost:9092 --topic msg
+
+#######################################################
+## Abrir consumer Kafka -- receber mensagens
+#######################################################
+
+bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic msg --from-beginning
+
+
+#######################################################
+## baixar flume
+#######################################################
+wget http://ftp.unicamp.br/pub/apache/flume/1.7.0/apache-flume-1.7.0-bin.tar.gz
+
+tar -xzf apache-flume-1.7.0-bin.tar.gz
+
+cd apache-flume-1.7.0-bin
+
+#######################################################
+## adicionar bibliotecas
+#######################################################
+copiar a lib flume-sources-1.0-SNAPSHOT.jar para pasta lib do flume (apache-flume-1.7.0-bin/lib)
+copiar a lib hive-serdes-1.0-SNAPSHOT.jar para a pasta lib do hive (/usr/lib/hive/lib/)
+parar e iniciar o hive
+sudo service hive-server2 stop
+sudo service hive-server2 start
+
+#######################################################
+## configurar  flume para receber twitter e enviar para o kafka
+#######################################################
+
+vi conf/twitter.properties 
+
+#######################################################
+## colar texto abaixo
+#######################################################
+twitterMsg.sources = src1 
+twitterMsg.channels = chn1 
+twitterMsg.sinks = snk1
+  
+twitterMsg.sources.src1.type = com.cloudera.flume.source.TwitterSource
+twitterMsg.sources.src1.consumerKey = TNg6uFaBD2ii3lb8LtsBRsBdg
+twitterMsg.sources.src1.consumerSecret = lkmrm5dHUVHmm0bLJ1w98EYXmcaEe1S0dkl6iPSgFsmoPXLIZZ 
+twitterMsg.sources.src1.accessToken =  2414240245-grBo4kBt8zsblRg8OJZb6dvSArL9VpHdjpyT1nn
+twitterMsg.sources.src1.accessTokenSecret = u6tovmo2hAbavxRhodqnNK59196fgsZS5ejHsCYG0TXvx
+twitterMsg.sources.src1.keywords = bigdata
+twitterMsg.sources.src1.channels = chn1
+
+twitterMsg.channels.chn1.type = memory  
+twitterMsg.channels.chn1.capacity = 10000 
+twitterMsg.channels.chn1.transactionCapacity = 100
+ 
+twitterMsg.sinks.snk1.channel = chn1 
+twitterMsg.sinks.snk1.type = org.apache.flume.sink.kafka.KafkaSink
+twitterMsg.sinks.snk1.kafka.topic = msg
+twitterMsg.sinks.snk1.kafka.bootstrap.servers = localhost:9092
+twitterMsg.sinks.snk1.kafka.flumeBatchSize = 20
+twitterMsg.sinks.snk1.kafka.producer.acks = 1
+twitterMsg.sinks.snk1.kafka.producer.linger.ms = 1
+twitterMsg.sinks.snk1.kafka.producer.compression.type = snappy
+
+#######################################################
+## criar shell para iniciar o agente flume
+#######################################################
+
+vi run_twitter.sh 
+nohup bin/flume-ng agent --conf ./conf/ --conf-file conf/twitter.properties --name twitterMsg &
+
+#######################################################
+## inciiar agente flume
+#######################################################
+sh run_twitter
+
+
+#######################################################
+## configurar flume para enviar do kafka para o HDFS
+#######################################################
+vi conf/hdfs.properties 
+
+#######################################################
+## colar texto abaixo
+#######################################################
+agentSink.sources = src1 
+agentSink.channels = chn1 
+agentSink.sinks = snk1
+
+agentSink.sources.src1.type = org.apache.flume.source.kafka.KafkaSource
+agentSink.sources.src1.channels = chn1
+agentSink.sources.src1.batchSize = 5000
+agentSink.sources.src1.batchDurationMillis = 2000
+agentSink.sources.src1.kafka.bootstrap.servers = localhost:9092
+agentSink.sources.src1.kafka.topics = msg
+agentSink.sources.src1.kafka.consumer.group.id = flume
+  
+agentSink.channels.chn1.type = memory  
+agentSink.channels.chn1.capacity = 10000 
+agentSink.channels.chn1.transactionCapacity = 100
+
+agentSink.sinks.snk1.channel=chn1
+agentSink.sinks.snk1.type=hdfs
+agentSink.sinks.snk1.hdfs.path=/app/twitter
+agentSink.sinks.snk1.hdfs.fileType=DataStream
+agentSink.sinks.snk1.hdfs.writeformat=Text
+agentSink.sinks.snk1.hdfs.batchSize=100
+agentSink.sinks.snk1.hdfs.rollSize=0
+agentSink.sinks.snk1.hdfs.rollCount=100
+agentSink.sinks.snk1.hdfs.rollInterval=100
+agentSink.sinks.snk1.hdfs.useLocalTimeStamp=true
+
+#######################################################
+## criar shell para iniciar o agente flume
+#######################################################
+
+vi run_hdfs.sh 
+nohup bin/flume-ng agent --conf ./conf/ --conf-file conf/hdfs.properties --name agentSink &
+
+#######################################################
+## inciiar agente flume
+#######################################################
+sh run_hdfs.sh
+
+#######################################################
+## criar caminho no HDFS
+#######################################################
+hadoop fs -mkdir -p /app/twitter
+hadoop fs -ls /app/twitter
+
+#######################################################
+## criar tabela no Hive
+#######################################################
+CREATE DATABASE app;
+
+USE app;
+
+CREATE EXTERNAL TABLE app.tweets (
+   id BIGINT,
+   created_at STRING,
+   source STRING,
+   favorited BOOLEAN,
+   retweet_count INT,
+   retweeted_status STRUCT<
+      text:STRING,
+      user:STRUCT<screen_name:STRING,name:STRING>>,
+   entities STRUCT<
+      urls:ARRAY<STRUCT<expanded_url:STRING>>,
+      user_mentions:ARRAY<STRUCT<screen_name:STRING,name:STRING>>,
+      hashtags:ARRAY<STRUCT<text:STRING>>>,
+   text STRING,
+   user STRUCT<
+      screen_name:STRING,
+      name:STRING,
+      friends_count:INT,
+      followers_count:INT,
+      statuses_count:INT,
+      verified:BOOLEAN,
+      utc_offset:INT,
+      time_zone:STRING>,
+   in_reply_to_screen_name STRING
+) 
+ROW FORMAT SERDE 'com.cloudera.hive.serde.JSONSerDe'
+LOCATION LOCATION '/app/twitter';
+
+
+
+
+
+--------------
+
+
