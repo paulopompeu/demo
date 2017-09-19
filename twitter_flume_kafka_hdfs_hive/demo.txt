@@ -74,10 +74,10 @@ twitterMsg.channels = chn1
 twitterMsg.sinks = snk1
   
 twitterMsg.sources.src1.type = com.cloudera.flume.source.TwitterSource
-twitterMsg.sources.src1.consumerKey = TNg6uFaBD2ii3lb8LtsBRsBdg
-twitterMsg.sources.src1.consumerSecret = lkmrm5dHUVHmm0bLJ1w98EYXmcaEe1S0dkl6iPSgFsmoPXLIZZ 
-twitterMsg.sources.src1.accessToken =  2414240245-grBo4kBt8zsblRg8OJZb6dvSArL9VpHdjpyT1nn
-twitterMsg.sources.src1.accessTokenSecret = u6tovmo2hAbavxRhodqnNK59196fgsZS5ejHsCYG0TXvx
+twitterMsg.sources.src1.consumerKey = 
+twitterMsg.sources.src1.consumerSecret =  
+twitterMsg.sources.src1.accessToken =  
+twitterMsg.sources.src1.accessTokenSecret = 
 twitterMsg.sources.src1.keywords = bigdata
 twitterMsg.sources.src1.channels = chn1
 
@@ -166,7 +166,7 @@ hadoop fs -ls /app/twitter
 CREATE DATABASE app;
 
 USE app;
-
+ADD JAR /usr/lib/hive/lib/hive-serdes-1.0-SNAPSHOT.jar;
 CREATE EXTERNAL TABLE app.tweets (
    id BIGINT,
    created_at STRING,
@@ -193,7 +193,7 @@ CREATE EXTERNAL TABLE app.tweets (
    in_reply_to_screen_name STRING
 ) 
 ROW FORMAT SERDE 'com.cloudera.hive.serde.JSONSerDe'
-LOCATION LOCATION '/app/twitter';
+LOCATION '/app/twitter';
 
 
 
